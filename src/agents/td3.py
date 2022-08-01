@@ -1,43 +1,41 @@
 import torch
 
 from neural_networks.nn_utils import NetworkParams, soft_update, save_checkpoint, load_checkpoint
-from neural_networks.critic import CriticTD3
-from neural_networks.actor import Actor
+from neural_networks.nn_td3 import Actor, Critic
 
 from noises.exploration_noises import ParamNoise
 from memory.replay_buffers import PrioritizedReplayBuffer
 
 
 class TD3Agent:
-    def __init__(self, params):
-        self.gamma = params.gamma
-        self.tau = params.tau
-        self.batch_size = params.batch_size
-        self.is_training = params.train
+    def __init__(self, train_agent, actor_lr, critic_lr, actor_dims, critic_dims, batch_size,
+        gamma, tau, n_obs, n_actions, action_ub,  action_lb,  exploration_noise, training_noise, 
+        policy_delay, replay_buffer):
+
+        self.gamma = gamma
+        self.tau = tau
+        self.batch_size = batch_size
+        self.is_training = train_agent
         self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
-        self.n_obs = params.n_obs
-        self.n_actions = params.n_actions
-        self.action_ub = torch.tensor(params.action_ub, device=self.device)
-        self.action_lb = torch.tensor(params.action_lb, device=self.device)
+        self.n_obs = n_obs
+        self.n_actions = n_actions
+        self.action_ub = torch.tensor(action_ub, device=self.device)
+        self.action_lb = torch.tensor(action_lb, device=self.device)
 
-        self.actor_dims=params.actor_dims
-        self.critic_dims = params.critic_dims
-        self.apply_input_norm = params.apply_input_norm
-        self.apply_layer_norm = params.apply_layer_norm
-        self.critic_lr = params.critic_lr
-        self.actor_lr = params.actor_lr
+        self.actor_dims = actor_dims
+        self.critic_dims = critic_dims
 
-        self.exploration_noise = params.exploration_noise
-        self.training_noise = params.training_noise
-        self.policy_delay = params.policy_delay
-        self.replay_buffer = params.replay_buffer
+        self.exploration_noise = exploration_noise
+        self.training_noise = training_noise
+        self.policy_delay = policy_delay
+        self.replay_buffer = replay_buffer
         self.learn_it_count = 0 # learning  iteration counter
 
         self._init_networks()
 
-        self.actor_optimizer = torch.optim.Adam(self.actor.parameters(), lr=self.actor_lr) # Set the optimizer
-        self.critic_optimizer = torch.optim.Adam(self.critic.parameters(), lr=self.critic_lr) # Set the optimizer
+        self.actor_optimizer = torch.optim.Adam(self.actor.parameters(), lr=actor_lr)
+        self.critic_optimizer = torch.optim.Adam(self.critic.parameters(), lr=critic_lr) 
     
     def choose_action(self, observation):
         observation = torch.tensor(observation, dtype=torch.float, device=self.actor.device)
@@ -100,7 +98,6 @@ class TD3Agent:
 
         Q_prime_1, Q_prime_2 = self.target_critic.forward(exp_batch.new_states, mu_prime) 
         Q_prime_min = torch.min(Q_prime_1, Q_prime_2)
-        # y = torch.add(exp_batch.rewards, torch.mul(torch.mul(self.gamma, Q_prime_min), exp_batch.not_dones))
         y = exp_batch.rewards + self.gamma * Q_prime_min * exp_batch.not_dones
 
         Q1, Q2 = self.critic.forward(exp_batch.states, exp_batch.actions)
@@ -122,7 +119,7 @@ class TD3Agent:
         
     def _optimize_actor(self, states):
         mu = self.actor.forward(states)
-        Q1, _ = self.critic.forward(states, mu) # loss = -Q
+        Q1 = self.critic.Q1(states, mu) # loss = -Q
         actor_loss = torch.mean(-Q1) # perform the mean accross the minibatch
         
         self.actor_optimizer.zero_grad()
@@ -138,20 +135,17 @@ class TD3Agent:
 
     def _init_networks(self):
         critic_params = NetworkParams(n_inputs=self.n_obs, n_outputs=1, n_actions=self.n_actions,
-            layer1_dims=self.critic_dims[0], layer2_dims=self.critic_dims[1], apply_input_norm=self.apply_input_norm,
-            apply_layer_norm=self.apply_layer_norm, learning_rate=self.critic_lr)
+            layer1_dims=self.critic_dims[0], layer2_dims=self.critic_dims[1])
 
         actor_params = NetworkParams(n_inputs=self.n_obs, n_outputs=self.n_actions, n_actions=self.n_actions,
-            layer1_dims=self.actor_dims[0], layer2_dims=self.actor_dims[1], apply_input_norm=self.apply_input_norm,
-            apply_layer_norm=self.apply_layer_norm, learning_rate=self.actor_lr, action_ub=self.action_ub)
+            layer1_dims=self.actor_dims[0], layer2_dims=self.actor_dims[1], action_ub=self.action_ub)
         
         # Create the Networks  
         self.actor = Actor(params=actor_params, name="Actor", device=self.device)
         self.target_actor = Actor(params=actor_params, name="TargetActor", device=self.device)
-        self.critic = CriticTD3(params=critic_params, name="Critic1", device=self.device)
-        self.target_critic = CriticTD3(params=critic_params, name="TargetCritic1", device=self.device)
+        self.critic = Critic(params=critic_params, name="Critics", device=self.device)
+        self.target_critic = Critic(params=critic_params, name="TargetCritics", device=self.device)
         
-
         # Initialize target networks parameters using hard copy
         soft_update(target_net=self.target_actor, origin_net=self.actor, tau=1)
         soft_update(target_net=self.target_critic, origin_net=self.critic, tau=1)

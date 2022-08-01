@@ -1,5 +1,4 @@
 from agents.ddpg import DDPGAgent
-from agents.params import DDPGParams
 
 from utils import parse_arguments, exploration_noise_from_args, replay_buffer_from_args
 import gym
@@ -7,19 +6,16 @@ import numpy as np
 
 if __name__ == "__main__":
     args = parse_arguments()
-
     env = gym.make(args.env_name)
 
-    noise = exploration_noise_from_args(args=args, n_actions=env.action_space.shape[0], n_obs=env.observation_space.shape[0], action_ub=env.action_space.high)
+    exploration_noise = exploration_noise_from_args(args=args, n_actions=env.action_space.shape[0], n_obs=env.observation_space.shape[0], action_ub=env.action_space.high)
     replay_buffer = replay_buffer_from_args(args=args, n_obs=env.observation_space.shape[0], n_actions=env.action_space.shape[0])
 
-    agent_params = DDPGParams(train=args.train_agent, actor_lr=args.actor_lr, critic_lr=args.critic_lr, 
-        actor_dims=[args.actor_l1_dim, args.actor_l2_dim], critic_dims=[args.critic_l1_dim, args.critic_l2_dim], 
-        apply_input_norm=args.input_norm, apply_layer_norm=args.layer_norm, 
+    agent = DDPGAgent(train_agent=args.train_agent, actor_lr=args.actor_lr, critic_lr=args.critic_lr, 
+        actor_dims=[args.actor_l1_dim, args.actor_l2_dim], critic_dims=[args.critic_l1_dim, args.critic_l2_dim],  
         batch_size=args.batch_size, gamma=args.discount_factor, tau=args.soft_update_factor, 
-        n_obs=env.observation_space.shape[0], n_actions=env.action_space.shape[0], action_ub=env.action_space.high, action_lb=env.action_space.low,
-        noise=noise, replay_buffer=replay_buffer)
-    agent = DDPGAgent(params=agent_params)
+        n_obs=env.observation_space.shape[0], n_actions=env.action_space.shape[0], action_ub=env.action_space.high,
+        action_lb=env.action_space.low, exploration_noise=exploration_noise, replay_buffer=replay_buffer)
 
     score_history = []
 

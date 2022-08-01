@@ -3,7 +3,7 @@ import numpy as np
 from noises.exploration_noises import OUNoise, ParamNoise, RandNoise
 from memory.replay_buffers import UniformReplayBuffer, HindsightReplayBuffer, PrioritizedReplayBuffer
 from neural_networks.nn_utils import NetworkParams
-from neural_networks.actor import Actor
+from neural_networks.nn_ddpg import Actor
 import torch
 
 

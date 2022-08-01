@@ -1,36 +1,34 @@
 import torch
-
 from neural_networks.nn_utils import NetworkParams, soft_update, save_checkpoint, load_checkpoint
-from neural_networks.critic import Critic
-from neural_networks.actor import Actor
+from neural_networks.nn_ddpg import Actor, Critic
 
 from noises.exploration_noises import ParamNoise
 from memory.replay_buffers import PrioritizedReplayBuffer
 
 class DDPGAgent:
-    def __init__(self, params):
-        self.gamma = params.gamma
-        self.tau = params.tau
-        self.batch_size = params.batch_size
-        self.is_training = params.train
+    def __init__(self, train_agent, actor_lr, critic_lr, actor_dims, critic_dims, batch_size,
+        gamma, tau, n_obs, n_actions, action_ub, action_lb, exploration_noise, replay_buffer):
+        self.gamma = gamma
+        self.tau = tau
+        self.batch_size = batch_size
+        self.is_training = train_agent
         self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
-        self.n_obs = params.n_obs
-        self.n_actions = params.n_actions
-        self.action_ub = torch.tensor(params.action_ub, device=self.device)
-        self.action_lb = torch.tensor(params.action_lb, device=self.device)
+        self.n_obs = n_obs
+        self.n_actions = n_actions
+        self.action_ub = torch.tensor(action_ub, device=self.device)
+        self.action_lb = torch.tensor(action_lb, device=self.device)
 
-        self.actor_dims=params.actor_dims
-        self.critic_dims = params.critic_dims
-        self.apply_input_norm = params.apply_input_norm
-        self.apply_layer_norm = params.apply_layer_norm
-        self.critic_lr = params.critic_lr
-        self.actor_lr = params.actor_lr
+        self.actor_dims=actor_dims
+        self.critic_dims = critic_dims
 
-        self.exploration_noise = params.exploration_noise
-        self.replay_buffer = params.replay_buffer
+        self.exploration_noise = exploration_noise
+        self.replay_buffer = replay_buffer
 
         self._init_networks()
+
+        self.actor_optimizer = torch.optim.Adam(self.actor.parameters(), lr=actor_lr) 
+        self.critic_optimizer = torch.optim.Adam(self.critic.parameters(), lr=critic_lr) 
 
     def choose_action(self, observation):
         observation = torch.tensor(observation, dtype=torch.float, device=self.actor.device)
@@ -51,11 +49,6 @@ class DDPGAgent:
     def learn(self):
         if self.replay_buffer.mem_cntr < self.batch_size: 
             return
-
-        self.actor.optimizer.zero_grad()
-        self.critic.optimizer.zero_grad()
-        self.target_actor.optimizer.zero_grad()
-        self.target_critic.optimizer.zero_grad()
 
         # Sample experience from replay buffer 
         exp_batch = self.replay_buffer.sample_experience_batch(self.batch_size)
@@ -89,12 +82,10 @@ class DDPGAgent:
 
     def _init_networks(self):
         critic_params = NetworkParams(n_inputs=self.n_obs, n_outputs=1, n_actions=self.n_actions,
-            layer1_dims=self.critic_dims[0], layer2_dims=self.critic_dims[1], apply_input_norm=self.apply_input_norm,
-            apply_layer_norm=self.apply_layer_norm, learning_rate=self.critic_lr)
+            layer1_dims=self.critic_dims[0], layer2_dims=self.critic_dims[1])
 
         actor_params = NetworkParams(n_inputs=self.n_obs, n_outputs=self.n_actions, n_actions=self.n_actions,
-            layer1_dims=self.actor_dims[0], layer2_dims=self.actor_dims[1], apply_input_norm=self.apply_input_norm,
-            apply_layer_norm=self.apply_layer_norm, learning_rate=self.actor_lr, action_ub=self.action_ub)
+            layer1_dims=self.actor_dims[0], layer2_dims=self.actor_dims[1], action_ub=self.action_ub)
         
         # Create the Networks  
         self.actor = Actor(params=actor_params, name="Actor", device=self.device)
@@ -121,8 +112,9 @@ class DDPGAgent:
         if isinstance(self.replay_buffer, PrioritizedReplayBuffer): 
             self.replay_buffer.update_priorities(td_error.cpu().detach().numpy(), exp_batch.indeces)
         loss = self._compute_weighted_mse(td_error = td_error, weights=exp_batch.weights)
+        self.critic_optimizer.zero_grad()
         loss.backward() # backpropagate the loss 
-        self.critic.optimizer.step() # perfrom optimization step
+        self.critic_optimizer.step() # perfrom optimization step
     
     def _optimize_actor(self, states):
         # Optimize the Actor Network: 
@@ -134,8 +126,9 @@ class DDPGAgent:
         mu = self.actor.forward(states)
         actor_loss = -self.critic.forward(states, mu) # loss = -Q
         actor_loss = torch.mean(actor_loss) # perform the mean accross the minibatch
+        self.actor_optimizer.zero_grad()
         actor_loss.backward() # Backpropagate the loss 
-        self.actor.optimizer.step() # Perform optimization step
+        self.actor_optimizer.step() # Perform optimization step
 
     def _compute_weighted_mse(self, td_error, weights=None):
         if weights is None:

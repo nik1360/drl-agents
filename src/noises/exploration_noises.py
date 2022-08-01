@@ -3,7 +3,6 @@ from abc import ABC, abstractmethod
 import torch
 import numpy as np
 
-from neural_networks.actor import Actor
 from neural_networks.nn_utils import soft_update
  
 class ExplorationNoise(ABC):

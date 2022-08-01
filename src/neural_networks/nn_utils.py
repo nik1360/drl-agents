@@ -23,14 +23,11 @@ def load_checkpoint(checkpoint_dir, network, verbose):
 
 class NetworkParams:
     def __init__(self, n_inputs, layer1_dims, layer2_dims, n_outputs, n_actions, 
-        apply_input_norm, apply_layer_norm, learning_rate, action_ub=None):
+        action_ub=None):
         self.input_dims = n_inputs
         self.layer1_dims = layer1_dims
         self.layer2_dims = layer2_dims
         self.output_dims = n_outputs
         self.n_actions = n_actions
-        self.apply_input_norm = apply_input_norm  # Determine if BatchNorm is applied on inputs
-        self.apply_layer_norm = apply_layer_norm  # Determine if LayerNorm is applied
-        self.learning_rate = learning_rate
         self.action_ub = action_ub
 
