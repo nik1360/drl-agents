@@ -19,7 +19,6 @@ if __name__ == "__main__":
         batch_size=args.batch_size, gamma=args.discount_factor, tau=args.soft_update_factor, 
         n_obs=env.observation_space.shape[0], n_actions=env.action_space.shape[0], action_ub=env.action_space.high, action_lb=env.action_space.low,
         exploration_noise=exploration_noise, training_noise=training_noise, policy_delay=args.policy_delay, replay_buffer=replay_buffer)
-
     
     score_history = []
 

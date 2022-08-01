@@ -24,8 +24,6 @@ def parse_arguments_ddpg(parser):
     parser.add_argument("--actor_l2_dim", type=int,  default=300, help="Dimension of the second layer of the Actor ")
     parser.add_argument("--critic_l1_dim", type=int, default=400, help="Dimension of the first layer of the Critic ")
     parser.add_argument("--critic_l2_dim", type=int, default=300, help="Dimension of the second layer of the Critic")
-    parser.add_argument("--input_norm", type=bool, default=False, help="Apply Batch Normalization to the inputs ")
-    parser.add_argument("--layer_norm", type=bool, default=False, help="Apply Layer normalization")
     parser.add_argument("--noise_type", type=str, default='OU', choices=['OU', 'PARAM', 'RAND'], help="Type of exploration noise")
     parser.add_argument("--param_noise_desired_distance", type=float, default=0.2, help="Desired distance for the parameter space exploration noise")
     parser.add_argument("--param_noise_decay_factor", type=float, default=1.1, help="Decay factor for the parameter space exploration noise")
@@ -40,6 +38,7 @@ def parse_arguments_ddpg(parser):
     parser.add_argument("--discount_factor", type=float, default=0.99, help="Discount factor")
     parser.add_argument("--train_agent", type=bool, default=True, help="Train the agent")
     parser.add_argument("--train_episodes", type=int, default=1000, help="Number of training episodes")
+    parser.add_argument("--test_episodes", type=int, default=20, help="Number of testing episodes")
     parser.add_argument("--env_name", type=str, default="LunarLanderContinuous-v2", help="Name of the OpenAI Gym environment")
     
     
