@@ -1,12 +1,15 @@
 from agents.ddpg import DDPGAgent
 
-from utils import parse_arguments, exploration_noise_from_args, replay_buffer_from_args
+from utils.init_utils import parse_arguments, exploration_noise_from_args, replay_buffer_from_args
+from utils.drl_utils import perform_training, perform_testing
+from utils.print_plot_utils import print_run_parameters
 import gym
-import numpy as np
 
 if __name__ == "__main__":
     args = parse_arguments()
-    env = gym.make(args.env_name)
+    env = gym.make(args.env_name )
+
+    train_agent = args.train_agent=="True" 
 
     exploration_noise = exploration_noise_from_args(args=args, n_actions=env.action_space.shape[0], n_obs=env.observation_space.shape[0], action_ub=env.action_space.high)
     replay_buffer = replay_buffer_from_args(args=args, n_obs=env.observation_space.shape[0], n_actions=env.action_space.shape[0])
@@ -17,26 +20,11 @@ if __name__ == "__main__":
         n_obs=env.observation_space.shape[0], n_actions=env.action_space.shape[0], action_ub=env.action_space.high,
         action_lb=env.action_space.low, exploration_noise=exploration_noise, replay_buffer=replay_buffer)
 
-    score_history = []
+    print_run_parameters(args)
+    print("Press a key to continue...")
+    input()
 
-    for i in range(args.train_episodes):
-        
-        agent.exploration_noise.reset(**( dict(actor_net=agent.actor, replay_buffer=agent.replay_buffer, 
-            batch_size=agent.batch_size) if args.noise_type=="PARAM" else {}))
-
-        obs = env.reset()
-        done = False
-        score = 0
-        while not done:
-            act = agent.choose_action(obs)
-            new_state, reward, done, info = env.step(act)
-            agent.remember(obs, act, reward, new_state, int(done))
-            agent.learn()
-            score += reward
-            obs = new_state
-
-        score_history.append(score)
-        print('Episode: ', i, ' => Score %.2f' % score,
-            '| Average 100 episodes: %.3f' % np.mean(score_history[-100:]))
-    
-    
+    if train_agent:
+        perform_training(agent=agent, train_episodes=args.train_episodes, noise_type=args.noise_type, env=env)
+    else:
+        perform_testing(agent=agent, test_episodes=args.test_episodes, env=env)    
