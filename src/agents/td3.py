@@ -64,12 +64,13 @@ class TD3Agent:
         exp_batch.not_dones = exp_batch.not_dones.view(self.batch_size, 1) # reshape from torch.Size([batch_size]) to torch.Size([batch_size, 1])
 
         self._optimize_critics(exp_batch=exp_batch)
-        if (self.learn_it_count % self.policy_delay == 0) and (self.learn_it_count > 0):
-            self._optimize_actor(exp_batch.states)
+        if (self.learn_it_count == self.policy_delay):
+            self.learn_it_count = 0
 
+            self._optimize_actor(exp_batch.states)
             soft_update(target_net=self.target_actor, origin_net=self.actor, tau=self.tau)
             soft_update(target_net=self.target_critic, origin_net=self.critic, tau=self.tau)
-            
+
         self.learn_it_count += 1
 
     def remember(self, state, action, reward, new_state, done):
@@ -91,36 +92,34 @@ class TD3Agent:
 
     def _optimize_critics(self, exp_batch):
         
-        mu_prime = self.target_actor.forward(exp_batch.new_states) 
+        with torch.no_grad():
+            mu_prime = self.target_actor.forward(exp_batch.new_states) 
         # Apply training noise 
         mu_prime = self.training_noise.perturbate_action(action=mu_prime, device=self.device)
         mu_prime = torch.clamp(mu_prime, self.action_lb, self.action_ub)
 
-        Q_prime_1, Q_prime_2 = self.target_critic.forward(exp_batch.new_states, mu_prime) 
+        with torch.no_grad():
+            Q_prime_1, Q_prime_2 = self.target_critic.forward(exp_batch.new_states, mu_prime) 
+
         Q_prime_min = torch.min(Q_prime_1, Q_prime_2)
         y = exp_batch.rewards + self.gamma * Q_prime_min * exp_batch.not_dones
 
+        self.critic_optimizer.zero_grad()
+
         Q1, Q2 = self.critic.forward(exp_batch.states, exp_batch.actions)
         
-        td_error_1 = y - Q1
-        td_error_2 = y - Q2
+        loss1 = torch.nn.functional.mse_loss(Q1, y)
+        loss2 = torch.nn.functional.mse_loss(Q2, y)
 
-        loss1 = self._compute_weighted_mse(td_error = td_error_1, weights=exp_batch.weights)
-        loss2 = self._compute_weighted_mse(td_error = td_error_2, weights=exp_batch.weights)
-        
         critic_loss = loss1 + loss2
 
-        self.critic_optimizer.zero_grad()
         critic_loss.backward()
         self.critic_optimizer.step()
-
-        if isinstance(self.replay_buffer, PrioritizedReplayBuffer): 
-            self.replay_buffer.update_priorities(td_error_1.cpu().detach().numpy(), exp_batch.indeces)
         
     def _optimize_actor(self, states):
         mu = self.actor.forward(states)
-        Q1 = self.critic.Q1(states, mu) # loss = -Q
-        actor_loss = torch.mean(-Q1) # perform the mean accross the minibatch
+        # Q1 = self.critic.Q1(states, mu) # loss = -Q
+        actor_loss = -self.critic.Q1(states, mu).mean() # perform the mean accross the minibatch
         
         self.actor_optimizer.zero_grad()
         actor_loss.backward() # Backpropagate the loss 
@@ -149,4 +148,18 @@ class TD3Agent:
         # Initialize target networks parameters using hard copy
         soft_update(target_net=self.target_actor, origin_net=self.actor, tau=1)
         soft_update(target_net=self.target_critic, origin_net=self.critic, tau=1)
-        
+    
+
+    def save_models(self, checkpoint_dir, verbose):
+        print("=====SAVING CHECKPOINTS====")
+        save_checkpoint(checkpoint_dir, self.actor, verbose=verbose)
+        save_checkpoint(checkpoint_dir, self.critic, verbose=verbose)
+        save_checkpoint(checkpoint_dir, self.target_actor, verbose=verbose)
+        save_checkpoint(checkpoint_dir, self.target_critic, verbose=verbose)
+
+    def load_models(self, checkpoint_dir, verbose):
+        print("=====LOADING CHECKPOINTS====")
+        load_checkpoint(checkpoint_dir, self.actor, verbose=verbose)
+        load_checkpoint(checkpoint_dir, self.critic, verbose=verbose)
+        load_checkpoint(checkpoint_dir, self.target_actor, verbose=verbose)
+        load_checkpoint(checkpoint_dir, self.target_critic, verbose=verbose)

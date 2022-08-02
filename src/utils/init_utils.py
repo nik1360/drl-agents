@@ -9,6 +9,8 @@ import torch
 
 def parse_arguments(td3=False):
     parser = argparse.ArgumentParser()
+    parser.add_argument("--checkpoint_save_dir", type=str, default="../data/saved_checkpoints", help="Directory in which checkpoints are saved")
+    parser.add_argument("--checkpoint_load_dir", type=str, default="../data/to_load_checkpoints", help="Directory in which checkpoints are loaded_from")
     parse_arguments_ddpg(parser)
     if td3:
         parse_arguments_td3(parser=parser)
@@ -39,10 +41,11 @@ def parse_arguments_ddpg(parser):
     parser.add_argument("--train_episodes", type=int, default=1000, help="Number of training episodes")
     parser.add_argument("--test_episodes", type=int, default=10, help="Number of testing episodes")
     parser.add_argument("--env_name", type=str, default="LunarLanderContinuous-v2", help="Name of the OpenAI Gym environment")
+
         
 def parse_arguments_td3(parser):
     parser.add_argument("--policy_delay", type=int, default=2, help="Frequency pof actor and targets update")
-    parser.add_argument("--train_noise_std", type=float, default=0.2, help="Standard deviation of the training noise")
+    parser.add_argument("--train_noise_std", type=float, default=0.1, help="Standard deviation of the training noise")
     parser.add_argument("--train_noise_clip", type=float, default=0.5, help="Maximum value for the training noise")
  
 def exploration_noise_from_args(args, n_actions, n_obs, action_ub):

@@ -1,7 +1,11 @@
 import numpy as np
+import os
 
-def perform_training(agent, train_episodes, noise_type, env, verbose=True, mean_window=100):
+def perform_training(agent, train_episodes, noise_type, env, checkpoint_dir, verbose=True, mean_window=100, 
+    save_frequency=50):
     score_history = []
+
+    if not os.path.exists(checkpoint_dir): os.mkdir(checkpoint_dir)
 
     for i in range(train_episodes):
         agent.exploration_noise.reset(**( dict(actor_net=agent.actor, replay_buffer=agent.replay_buffer, 
@@ -19,6 +23,9 @@ def perform_training(agent, train_episodes, noise_type, env, verbose=True, mean_
             obs = new_state
 
         score_history.append(score)
+        if (i % save_frequency == 0):
+            agent.save_models(checkpoint_dir=checkpoint_dir, verbose=True)
+        
         if verbose:
             print('Episode: ', i, ' => Score %.2f' % score,
                 '| Average 100 episodes: %.3f' % np.mean(score_history[-mean_window:]))

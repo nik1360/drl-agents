@@ -102,17 +102,19 @@ class DDPGAgent:
         # 1 A) Compute mu_prime = \mu'(s_{i+1}|\theta^{\mu'})
         # 1 B) Compute Q_prime = Q'(s_{i+1}, mu_prime | \theta^{Q'})
         # 1 C) Compute y
-        mu_prime = self.target_actor.forward(exp_batch.new_states) 
-        Q_prime = self.target_critic.forward(exp_batch.new_states, mu_prime) 
+
+        self.critic_optimizer.zero_grad()
+
+        with torch.no_grad():
+            mu_prime = self.target_actor.forward(exp_batch.new_states) 
+            Q_prime = self.target_critic.forward(exp_batch.new_states, mu_prime)
+
         y = torch.add(exp_batch.rewards, torch.mul(torch.mul(self.gamma, Q_prime), exp_batch.not_dones))
 
         # 2 Compute Q = Q(s_{i}, a_{i} | \theta^{Q})
         Q = self.critic.forward(exp_batch.states, exp_batch.actions)
-        td_error = y-Q
-        if isinstance(self.replay_buffer, PrioritizedReplayBuffer): 
-            self.replay_buffer.update_priorities(td_error.cpu().detach().numpy(), exp_batch.indeces)
-        loss = self._compute_weighted_mse(td_error = td_error, weights=exp_batch.weights)
-        self.critic_optimizer.zero_grad()
+        
+        loss = torch.nn.functional.mse_loss(y, Q) 
         loss.backward() # backpropagate the loss 
         self.critic_optimizer.step() # perfrom optimization step
     
@@ -122,11 +124,12 @@ class DDPGAgent:
         # maximizes the state action value function Q (output of the Critic) or
         # equivalently, minimize -Q. To this end, -Critic.forward() is set as 
         # the loss function fo the actor network.
-
+        self.actor_optimizer.zero_grad()
+        
         mu = self.actor.forward(states)
         actor_loss = -self.critic.forward(states, mu) # loss = -Q
         actor_loss = torch.mean(actor_loss) # perform the mean accross the minibatch
-        self.actor_optimizer.zero_grad()
+        
         actor_loss.backward() # Backpropagate the loss 
         self.actor_optimizer.step() # Perform optimization step
 
@@ -136,3 +139,17 @@ class DDPGAgent:
 
         loss = torch.mul(1./self.batch_size, torch.sum( torch.mul(weights, torch.pow(td_error, 2))))
         return loss
+    
+    def save_models(self, checkpoint_dir, verbose):
+        print("=====SAVING CHECKPOINTS====")
+        save_checkpoint(checkpoint_dir, self.actor, verbose=verbose)
+        save_checkpoint(checkpoint_dir, self.critic, verbose=verbose)
+        save_checkpoint(checkpoint_dir, self.target_actor, verbose=verbose)
+        save_checkpoint(checkpoint_dir, self.target_critic, verbose=verbose)
+
+    def load_models(self, checkpoint_dir, verbose):
+        print("=====LOADING CHECKPOINTS====")
+        load_checkpoint(checkpoint_dir, self.actor, verbose=verbose)
+        load_checkpoint(checkpoint_dir, self.critic, verbose=verbose)
+        load_checkpoint(checkpoint_dir, self.target_actor, verbose=verbose)
+        load_checkpoint(checkpoint_dir, self.target_critic, verbose=verbose)

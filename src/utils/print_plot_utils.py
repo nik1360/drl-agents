@@ -1,8 +1,10 @@
 from tabulate import tabulate
 
-def print_run_parameters(args, td3=False):
+def print_run_parameters(args, td3=False, out_file=None):
 
     params_list = []
+    
+    params_list.append(['Agent', "TD3" if td3 else "DDPG"])
     params_list.append(['Environment', args.env_name])
     if (args.train_agent=='True'):
         params_list.append(['Train Agent', 1])
@@ -31,9 +33,13 @@ def print_run_parameters(args, td3=False):
     params_list.append(['Batch size', args.batch_size])
     params_list.append(['Soft update factor tau', args.soft_update_factor])
     params_list.append(['Discount factor gamma', args.discount_factor])
+    
     if td3:
         params_list.append(['Policy delay', args.policy_delay])
         params_list.append(['Training noise standard deviation', args.train_noise_std])
         params_list.append(['Training noise clip', args.train_noise_clip])
     tab = tabulate(params_list, headers=['Parameter', 'Value'], tablefmt="grid")
+    
     print(tab)
+    if out_file is not None:
+        print(tab, file=out_file)

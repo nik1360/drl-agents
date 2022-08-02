@@ -11,7 +11,8 @@ if __name__ == "__main__":
     args = parse_arguments(td3=True)
     train_agent = args.train_agent=="True" 
     
-    env = gym.make(args.env_name)
+    env_params = dict(render_mode="human") if not train_agent else {}
+    env = gym.make(args.env_name, **env_params)
 
     exploration_noise = exploration_noise_from_args(args=args, n_actions=env.action_space.shape[0], n_obs=env.observation_space.shape[0], action_ub=env.action_space.high)
     training_noise = training_noise_from_args(args=args)
