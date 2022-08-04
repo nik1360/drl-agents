@@ -1,4 +1,5 @@
 from agents.td3 import TD3Agent
+import shutil
 
 from utils.init_utils import parse_arguments, exploration_noise_from_args, training_noise_from_args, replay_buffer_from_args
 from utils.drl_utils import perform_training, perform_testing
@@ -26,11 +27,15 @@ if __name__ == "__main__":
         exploration_noise=exploration_noise, training_noise=training_noise, policy_delay=args.policy_delay, replay_buffer=replay_buffer)
     
     
-    print_run_parameters(args, td3=True)
+    with open('run_details.txt', 'w') as f:
+        print_run_parameters(args, td3=True,  out_file=f)
+    
     print("Press a key to continue...")
     input()
 
     if train_agent:
-        perform_training(agent=agent, train_episodes=args.train_episodes, noise_type=args.noise_type, env=env)
+        shutil.move("run_details.txt", args.checkpoint_save_dir + "/run_details.txt")
+        perform_training(agent=agent, train_episodes=args.train_episodes, noise_type=args.noise_type, env=env, 
+            checkpoint_dir=args.checkpoint_save_dir)
     else:
-        perform_testing(agent=agent, test_episodes=args.test_episodes, env=env) 
+        perform_testing(agent=agent, test_episodes=args.test_episodes, env=env, checkpoint_dir=args.checkpoint_load_dir)    

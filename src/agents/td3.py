@@ -92,19 +92,18 @@ class TD3Agent:
 
     def _optimize_critics(self, exp_batch):
         
-        with torch.no_grad():
-            mu_prime = self.target_actor.forward(exp_batch.new_states) 
+        
+        mu_prime = self.target_actor.forward(exp_batch.new_states) 
         # Apply training noise 
         mu_prime = self.training_noise.perturbate_action(action=mu_prime, device=self.device)
         mu_prime = torch.clamp(mu_prime, self.action_lb, self.action_ub)
 
-        with torch.no_grad():
-            Q_prime_1, Q_prime_2 = self.target_critic.forward(exp_batch.new_states, mu_prime) 
+        
+        Q_prime_1, Q_prime_2 = self.target_critic.forward(exp_batch.new_states, mu_prime) 
 
         Q_prime_min = torch.min(Q_prime_1, Q_prime_2)
         y = exp_batch.rewards + self.gamma * Q_prime_min * exp_batch.not_dones
 
-        self.critic_optimizer.zero_grad()
 
         Q1, Q2 = self.critic.forward(exp_batch.states, exp_batch.actions)
         
@@ -113,6 +112,7 @@ class TD3Agent:
 
         critic_loss = loss1 + loss2
 
+        self.critic_optimizer.zero_grad()
         critic_loss.backward()
         self.critic_optimizer.step()
         

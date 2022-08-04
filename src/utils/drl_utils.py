@@ -32,9 +32,10 @@ def perform_training(agent, train_episodes, noise_type, env, checkpoint_dir, ver
     return score_history
 
 
-def perform_testing(agent, test_episodes,  env, verbose=True):
+def perform_testing(agent, test_episodes,  checkpoint_dir, env, verbose=True):
     score_history = []
 
+    agent.load_models(checkpoint_dir=checkpoint_dir, verbose=verbose)
     for i in range(test_episodes):
         obs = env.reset()
         done = False

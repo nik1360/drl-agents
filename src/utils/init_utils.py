@@ -10,7 +10,7 @@ import torch
 def parse_arguments(td3=False):
     parser = argparse.ArgumentParser()
     parser.add_argument("--checkpoint_save_dir", type=str, default="../data/saved_checkpoints", help="Directory in which checkpoints are saved")
-    parser.add_argument("--checkpoint_load_dir", type=str, default="../data/to_load_checkpoints", help="Directory in which checkpoints are loaded_from")
+    parser.add_argument("--checkpoint_load_dir", type=str, default="../data/saved_checkpoints", help="Directory in which checkpoints are loaded_from")
     parse_arguments_ddpg(parser)
     if td3:
         parse_arguments_td3(parser=parser)
@@ -19,7 +19,7 @@ def parse_arguments(td3=False):
     return args
 
 def parse_arguments_ddpg(parser):
-    parser.add_argument("--actor_lr", type=float, default=0.0001, help="Actor Network Learning Rate")
+    parser.add_argument("--actor_lr", type=float, default=0.001, help="Actor Network Learning Rate")
     parser.add_argument("--critic_lr", type=float, default=0.001, help="Critic Network Learning Rate")
     parser.add_argument("--actor_l1_dim", type=int,  default=400, help="Dimension of the first layer of the Actor ")
     parser.add_argument("--actor_l2_dim", type=int,  default=300, help="Dimension of the second layer of the Actor ")
@@ -33,7 +33,7 @@ def parse_arguments_ddpg(parser):
     parser.add_argument("--ou_noise_theta", type=float, default=0.2, help="Theta value for the Ornstein–Uhlenbeck action space noise")
     parser.add_argument("--rand_noise_std", type=float, default=0.15, help="standard deviation for the normal random action space noise")
     parser.add_argument("--experience_replay_type", type=str, default='UNIFORM', choices=['UNIFORM', 'PRIORITIZED', 'HINDSIGHT'], help="Type of Experience Replay")
-    parser.add_argument("--replay_buffer_size", type=int, default=100000, help="Experience replay buffer size")
+    parser.add_argument("--replay_buffer_size", type=int, default=1000000, help="Experience replay buffer size")
     parser.add_argument("--batch_size", type=int, default=64, help="Batch size")
     parser.add_argument("--soft_update_factor", type=float, default=0.001, help="Factor for the soft update of the target networks")
     parser.add_argument("--discount_factor", type=float, default=0.99, help="Discount factor")
